@@ -7,7 +7,7 @@ using System.IO;
 class Server
 {
 
-    // const Byte ACK = 6;
+    // const Byte ACK = Encoding.ASCII(6);
     const int ENQ = 5;
     const int STX = 2;
     const int ETX = 3;
@@ -16,16 +16,20 @@ class Server
     const int EOT = 4;
 
     TcpListener server = null;
+    String ASTM_Message;
     public Server(string ip, int port)
     {
         IPAddress localAddr = IPAddress.Parse(ip);
         server = new TcpListener(localAddr, port);
+
         server.Start();
         StartListener();
+    
 
     }
     public void StartListener()
     {
+
         try
         {
             while (true)
@@ -33,12 +37,9 @@ class Server
                 Console.WriteLine("Waiting for a connection...");
                 TcpClient client = server.AcceptTcpClient();
                 Console.WriteLine("Connected!");
-                //    Thread t = new Thread(new ParameterizedThreadStart(HandleDeivce));
-                //    Thread t = new Thread(new ParameterizedThreadStart(getASTMStream));
 
-                //   t.Start(client);
-
-                getASTMStream(client);
+                this.ASTM_Message = getASTMStream(client);
+                Console.WriteLine("ASTM_Message: "+ASTM_Message);
             }
         }
         catch (SocketException e)
@@ -48,23 +49,27 @@ class Server
         }
     }
 
-
-    public String getASTMStream(TcpClient client)
+    private String getASTMStream(TcpClient client)
     {
         var stream = client.GetStream();
-        Boolean hasStarted = false;
-        Boolean hasEnded = false ;
+
         Boolean transmisson = false;
+        Boolean checksum_block = false;
+        Boolean message_block = false;
+        //   Byte ACK = Encoding.ASCII.GetString(6,0,bytes.Length);
 
         BinaryWriter writer = new BinaryWriter(client.GetStream(), Encoding.ASCII, true);
-
-        Byte[] ACK = new byte[6];
-
+        ASCIIEncoding ascii = new ASCIIEncoding();
+        Byte[] ACK = ascii.GetBytes("\06");
 
 
         string data = null;
-        Byte[] bytes = new Byte[1];
+
+        Byte[] bytes = new byte[1];
         int i;
+        StringBuilder message = new StringBuilder();
+        StringBuilder checksum = new StringBuilder();
+
 
         try
         {
@@ -72,92 +77,79 @@ class Server
             while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
             {
                 data = Encoding.ASCII.GetString(bytes, 0, i);
-                Console.WriteLine(data.ToCharArray()[0]);
-                //Console.WriteLine(data);
-
-
+              //  Console.WriteLine(data.ToCharArray()[0]);
                 if (data.ToCharArray()[0] == ENQ)
                 {
                     writer.Write(ACK);
                     transmisson = true;
-                    Console.WriteLine("Übertragung startet!");
+              //      Console.WriteLine("Übertragung startet!");
 
                 }
                 else if (data.ToCharArray()[0] == EOT)
                 {
 
                     transmisson = false;
-                    Console.WriteLine("Übertragung beendet!");
-                    return data;
+                //    Console.WriteLine("Übertragung beendet!"+message);
+                    return message.ToString();
 
                 }
 
-                    if (transmisson == true && data.ToCharArray()[0] == STX ) {
-                        hasStarted = true;
-                        hasEnded = false;
-                        Console.WriteLine("Daten kommen!");
-                    }
+                if (transmisson == true && data.ToCharArray()[0] == STX)
+                {
+    
+                    message_block = true;
+               //     Console.WriteLine("Daten kommen!");
+                }
 
-                      if (data.ToCharArray()[0] == ETX ) {
-                        hasEnded = true;
-
-                        Console.WriteLine("Ende der Nachricht!");
-                    }
-                
-                
-                      if (hasEnded == false && data.ToCharArray()[0] == CR ) {
-                        Console.WriteLine("Jetzt kommt gleich Checksumme!");
+                if (data.ToCharArray()[0] == ETX)
+                {
+                    message_block = false;
+                    checksum_block = true;
 
 
-                    } else if (hasEnded == true && data.ToCharArray()[0] != CR) {
+                    Console.WriteLine("Ende der Nachricht!");
+                }
 
-                            Console.WriteLine("Checksumme!");
-                    }
+
+                if (message_block == true && data.ToCharArray()[0] == CR)
+                {
+
+
+                }
+                else if (checksum_block == true && data.ToCharArray()[0] == CR)
+                {
+
+                    checksum_block = false;
+
+                }
+
+                if( checksum_block == false && data.ToCharArray()[0] == CR) {
+
+                        message.Append(data.ToCharArray()[0]);
+
+                }
+
+                if( checksum_block == false && data.ToCharArray()[0] == LF) {
+
+                        message.Append(data.ToCharArray()[0]);
+
+                }
+
+                if (message_block == true)
+                {
+                    message.Append(data.ToCharArray()[0]);
+
+                }
+                else if (checksum_block == true)
+                {
+
+                    checksum.Append(data.ToCharArray()[0]);
+
+                }
+            
 
             }
-            /*
-
-                            if (data.ToCharArray()[0] == ENQ)
-                            {
-                                writer.Write(ACK);
-
-                            }
-                            else if (data.ToCharArray()[0] == EOT)
-                            {
-
-
-                            }
-                            else
-                            {
-                                if (data.ToCharArray()[0] == STX)
-                                {
-                                    hasStarted = false;
-                                    hasEnded = false;
-
-                                    hasStarted = true;
-
-
-                                }
-
-
-                                else if (data.ToCharArray()[0] == ETX)
-                                {
-                                    //TODO PARSER ERROR
-
-                                hasEnded = true;
-
-                            } else if (data.ToCharArray()[0] == LF)
-                            {
-
-                            }
-
-
-                            }
-                        }
-
-            */
-
-
+     
 
         }
         catch (Exception e)
@@ -166,59 +158,14 @@ class Server
             client.Close();
         }
 
+        return message.ToString();
 
-        return null;
     }
 
-    public void HandleDeivce(Object obj)
+
+    public String getASTMMessage()
     {
-        TcpClient client = (TcpClient)obj;
-        var stream = client.GetStream();
-        string imei = String.Empty;
-        string data = null;
-        Byte[] bytes = new Byte[256];
-        int i;
-        try
-        {
-            while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
-            {
-                string hex = BitConverter.ToString(bytes);
-                data = Encoding.ASCII.GetString(bytes, 0, i);
-                Console.WriteLine(data.ToCharArray()[0]);
-
-
-                BinaryWriter writer = new BinaryWriter(client.GetStream(), Encoding.ASCII, true);
-                if (data.ToCharArray()[0] == ENQ)
-                {
-                    writer.Write(new Byte[6]);
-
-                }
-                else if (data.ToCharArray()[0] == EOT)
-                {
-
-                }
-
-
-                if (data.ToCharArray()[0] == STX)
-                {
-
-                    Console.WriteLine("true");
-                    writer.Write("<STX>");
-
-                }
-
-                Console.WriteLine("{1}: Received: {0}", data, Thread.CurrentThread.ManagedThreadId);
-                string str = "Hey Device!";
-                Byte[] reply = System.Text.Encoding.ASCII.GetBytes(str);
-
-                //stream.Write(reply, 0, reply.Length);
-                Console.WriteLine("{1}: Sent: {0}", str, Thread.CurrentThread.ManagedThreadId);
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine("Exception: {0}", e.ToString());
-            client.Close();
-        }
+        return this.ASTM_Message;
     }
+
 }
