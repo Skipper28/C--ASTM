@@ -20,10 +20,12 @@ class Server
     public Server(string ip, int port)
     {
         IPAddress localAddr = IPAddress.Parse(ip);
-        server = new TcpListener(localAddr, port);
+        this.server = new TcpListener(localAddr, port);
 
-        server.Start();
-        StartListener();
+        this.server.Start();
+                      
+
+ //StartListener();
     
 
     }
@@ -34,12 +36,11 @@ class Server
         {
             while (true)
             {
-                Console.WriteLine("Waiting for a connection...");
-                TcpClient client = server.AcceptTcpClient();
-                Console.WriteLine("Connected!");
-
-                this.ASTM_Message = getASTMStream(client);
-                Console.WriteLine("ASTM_Message: "+ASTM_Message);
+             //  Console.WriteLine("Waiting for a connection...");
+           
+    
+            //getASTMStream();
+             //   Console.WriteLine("ASTM_Message: "+ASTM_Message);
             }
         }
         catch (SocketException e)
@@ -49,8 +50,11 @@ class Server
         }
     }
 
-    private String getASTMStream(TcpClient client)
+    public String getASTMStream()
     {
+
+         TcpClient client = server.AcceptTcpClient();
+          
         var stream = client.GetStream();
 
         Boolean transmisson = false;
@@ -70,7 +74,7 @@ class Server
         StringBuilder message = new StringBuilder();
         StringBuilder checksum = new StringBuilder();
 
-
+ 
         try
         {
 
@@ -82,14 +86,14 @@ class Server
                 {
                     writer.Write(ACK);
                     transmisson = true;
-              //      Console.WriteLine("Übertragung startet!");
+           Console.WriteLine("Übertragung startet!");
 
                 }
                 else if (data.ToCharArray()[0] == EOT)
                 {
 
                     transmisson = false;
-                //    Console.WriteLine("Übertragung beendet!"+message);
+                  Console.WriteLine("Übertragung beendet!"+message);
                     return message.ToString();
 
                 }
@@ -98,7 +102,7 @@ class Server
                 {
     
                     message_block = true;
-               //     Console.WriteLine("Daten kommen!");
+                 Console.WriteLine("Daten kommen!");
                 }
 
                 if (data.ToCharArray()[0] == ETX)
@@ -158,14 +162,10 @@ class Server
             client.Close();
         }
 
+            
+
         return message.ToString();
 
-    }
-
-
-    public String getASTMMessage()
-    {
-        return this.ASTM_Message;
     }
 
 }

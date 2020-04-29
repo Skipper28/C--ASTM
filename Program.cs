@@ -11,12 +11,14 @@ class Program
 
     static void Main(string[] args)
     {
-            Console.WriteLine("TEST");        
+            Console.WriteLine("TEST");      
 
-         Server myserver = new Server("127.0.0.1", 10124);
+            Server myserver = new Server("127.0.0.1", 10124);  
+while(true) {
+         
 
-            Console.WriteLine("Zum Parsen: "+myserver.getASTMMessage());
-            Console.WriteLine("TEST");        
+            Console.WriteLine("Zum Parsen: "+myserver.getASTMStream() );
+}            
 /**
         Thread t = new Thread(delegate ()
         {
